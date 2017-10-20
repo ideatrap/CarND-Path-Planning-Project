@@ -263,12 +263,6 @@ int findLane (int lane, double car_s, double car_speed, int prev_size, vector<ve
   return bestLane;
 }
 
-void PlanTrajectory(){
-
-
-
-}
-
 
 
 int main() {
@@ -311,11 +305,10 @@ int main() {
   int lane = 1; // start from lane 1
   double ref_vel = 0; // target velocity in mph
   double max_vel = 49.8; //max speed limit
-  double safe_dist = 30; // smoot target distance for changinbg lane
+  double safe_dist = 30; // safe distance
 
 
-  h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
-                     uWS::OpCode opCode) {
+  h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
     // The 2 signifies a websocket event
@@ -349,7 +342,8 @@ int main() {
           	double end_path_d = j[1]["end_path_d"];
 
           	// Sensor Fusion Data, a list of all other cars on the same side of the road.
-          	auto sensor_fusion = j[1]["sensor_fusion"];
+            vector<double> car;
+            vector<vector<double>> sensor_fusion = j[1]["sensor_fusion"];
 
           	json msgJson;
 
@@ -364,7 +358,7 @@ int main() {
             }
 
             // avoid tailgate the car in the same lane
-            bool too_close = tooClose(lane, car_s, prev_size, sensor_fusion, safe_dist+15);
+            bool too_close = tooClose(lane, car_s, prev_size, sensor_fusion, safe_dist);
 
             if(too_close){
               //think about lane change only if the current lane is blocked
@@ -372,7 +366,7 @@ int main() {
               int lane_current = lane;
               lane = findLane (lane, car_s, car_speed, prev_size, sensor_fusion, safe_dist);
 
-              if lane_current != lane { //if it has recommended to change to a different lane
+              if (lane_current != lane) { //if it has recommended to change to a different lane
                   cout << "Car will change to lane: " << lane << std::endl;
               }
             }
@@ -388,7 +382,7 @@ int main() {
             }
 
             //project the path based on the calculated path and lane
-            PlanTrajectory();
+
 
             //Push the car to the next set of path
             msgJson["next_x"] = next_x_vals;

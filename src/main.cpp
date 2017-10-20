@@ -8,6 +8,7 @@
 #include "Eigen-3.3/Eigen/Core"
 #include "Eigen-3.3/Eigen/QR"
 #include "json.hpp"
+#include "spline.h"
 
 using namespace std;
 
@@ -159,6 +160,117 @@ vector<double> getXY(double s, double d, const vector<double> &maps_s, const vec
 
 }
 
+//reference: walk through video
+bool tooClose(int lane, double car_s, int prev_size, vector<vector<double>> &sensor_fusion, double safe_dist){
+  bool too_close = false;
+
+  // find ref_v to use
+  for(int i = 0; i < sensor_fusion.size(); i++) {
+    //d of the car
+    float d = sensor_fusion[i][6];
+    // if the car is in my lane
+    if (d < (2+4*lane+2) && d > (2+4*lane-2)){
+      double vx = sensor_fusion[i][3];
+      double vy = sensor_fusion[i][4];
+      double check_speed = sqrt(vx*vx+vy*vy);// car speed
+      double check_car_s = sensor_fusion[i][5]; // previous car position
+
+      // project the car position given lagging in responses
+      check_car_s = check_car_s + ((double)prev_size*0.02*check_speed);
+
+      //check whether any car is too close (<30 M)
+      if((check_car_s > car_s) && ((check_car_s-car_s)< safe_dist)) {
+        too_close = true;
+      }
+    }
+  }
+
+  return too_close;
+}
+
+double laneCost (int target_lane, int current_lane, double car_s, double car_speed, int prev_size, vector<vector<double>> &sensor_fusion, double safe_dist){
+
+  double cost = 0;
+  double cost_lane_change = 1;
+  double cost_unsafe = 9999999;
+  double cost_close = 10;
+
+  //check whether the target lane is a valid lane
+  if (target_lane > 2 || target_lane < 0){
+    return cost_unsafe;
+  } else {
+    if (target_lane != current_lane) {
+      //avoid lane changes
+      cost = cost + cost_lane_change;
+    }
+    //check the car status in the target lane, and decide whether it's safe to move
+    //scan through all visible cars
+    for (int i = 0; i < sensor_fusion.size(); i++) {
+      // cars in this lane
+      float d = sensor_fusion[i][6];
+      if (d < (2+4*target_lane+2) && d > (2+4*target_lane-2))
+      {
+        double vx = sensor_fusion[i][3];
+        double vy = sensor_fusion[i][4];
+        double check_speed = sqrt(vx*vx+vy*vy);
+        double check_car_s = sensor_fusion[i][5];
+
+        check_car_s += ((double)prev_size*0.02*check_speed);  // if we are using previous points we can project the s value
+
+        // check whether it's too close to cars ahead
+        if((check_car_s > car_s) && ((check_car_s-car_s)< safe_dist)) {
+          cost = cost_unsafe; // not safe
+
+        }
+        else if ((check_car_s > car_s) && ((check_car_s-car_s)< safe_dist+15)){
+          cost = cost + cost_close; //having car ahead
+        }
+        // check whether it's too close to cars ahead, or speed much faster
+        else if ((check_car_s < car_s) && ((car_s-check_car_s)< safe_dist || (check_speed -car_speed > 5 && (car_s-check_car_s)< safe_dist + 15))) {
+
+          cout << "!!! - !!! car in lane: " << target_lane << " behind, distance: " << car_s-check_car_s << " speed: " << check_speed << std::endl;
+          cost = cost_unsafe;
+
+          // if larger speed not safe
+          if (check_speed > car_speed)
+          {
+            cout << " !! can be deleted !!     NOT SAFE  in lane: " << target_lane << " car behind with more speed, distance: " << car_s-check_car_s << " speed: " << check_speed << std::endl;
+            cost = cost_unsafe; // not safe
+          }
+        }
+      }
+    }
+    return cost;
+  }
+}
+
+int findLane (int lane, double car_s, double car_speed, int prev_size, vector<vector<double>> &sensor_fusion,double safe_dist){
+  int bestLane = lane;
+  //find the best available lane through cost function
+  double cost_left = laneCost(lane-1, lane, car_s, car_speed, prev_size, sensor_fusion, safe_dist);
+  double cost_current = laneCost(lane, lane, car_s, car_speed, prev_size, sensor_fusion, safe_dist);
+  double cost_right = laneCost(lane+1, lane, car_s, car_speed, prev_size, sensor_fusion, safe_dist);
+
+  //lane recommendation logic
+  //change to left lane if it's favorable than current lane
+  //change to right lane if it's favorable than all other options
+
+  if (cost_left < cost_current){
+    bestLane = lane - 1; //move to left lane
+  }else if (cost_right < cost_current){
+    bestLane = lane + 1;// move to right lane
+  }
+  return bestLane;
+}
+
+void PlanTrajectory(){
+
+
+
+}
+
+
+
 int main() {
   uWS::Hub h;
 
@@ -195,6 +307,12 @@ int main() {
   	map_waypoints_dx.push_back(d_x);
   	map_waypoints_dy.push_back(d_y);
   }
+
+  int lane = 1; // start from lane 1
+  double ref_vel = 0; // target velocity in mph
+  double max_vel = 49.8; //max speed limit
+  double safe_dist = 30; // smoot target distance for changinbg lane
+
 
   h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
@@ -238,21 +356,41 @@ int main() {
           	vector<double> next_x_vals;
           	vector<double> next_y_vals;
 
+            //size of previous path.
+            int prev_size = previous_path_x.size();
 
-          	// TODO: define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
-
-            double dist_inc = 0.5;
-            for(int i = 0; i < 50; i++)
-            {
-              double next_s = car_s+(i+1)*dist_inc;
-              double next_d = 6;
-
-              vector<double> xy = getXY(next_s, next_d, map_waypoints_s,map_waypoints_x,map_waypoints_y);
-
-              next_x_vals.push_back(xy[0]);
-              next_y_vals.push_back(xy[1]);
+            if (prev_size>0) {
+              car_s = end_path_s;
             }
 
+            // avoid tailgate the car in the same lane
+            bool too_close = tooClose(lane, car_s, prev_size, sensor_fusion, safe_dist+15);
+
+            if(too_close){
+              //think about lane change only if the current lane is blocked
+              //find the best lane to change
+              int lane_current = lane;
+              lane = findLane (lane, car_s, car_speed, prev_size, sensor_fusion, safe_dist);
+
+              if lane_current != lane { //if it has recommended to change to a different lane
+                  cout << "Car will change to lane: " << lane << std::endl;
+              }
+            }
+
+            // reduce speed if it's too close to the front car, and not changing lane
+            if (too_close)
+            {
+              ref_vel -= 0.224; //gradually reduce speed
+            }
+            else if (ref_vel < max_vel)
+            {
+              ref_vel += 0.224; //gradually increase speed
+            }
+
+            //project the path based on the calculated path and lane
+            PlanTrajectory();
+
+            //Push the car to the next set of path
             msgJson["next_x"] = next_x_vals;
           	msgJson["next_y"] = next_y_vals;
 

@@ -5,33 +5,27 @@ The car is able to travel for long distance without incidence. Youtube video: ht
 The implementation borrows ideas from the project walk through video. The
 project uses finite state machine to plan car behavior. The implementation has
 two main components: a). Behavior Planning: plan the action on what action to
-take given the status of cars on the road; 2) Path Planning: given the desired
+take given the status of cars on the road; b) Path Planning: given the desired
 action to take, what's the course of way point to pass to complete the action.
 
 
 ## Behavior Planning
-It uses cost function to optimize for the best lane (code: function )
+It uses cost function to optimize for the best lane (code: function `laneCost`). It checks every visible car, and set highest cost if the lane is unsafe to move in.
+
+Given the same cost, it always prefer to over take from the left. (function `findLane`)
 
 
 ## Trajectory Generation
+Given the target to change into, it uses spline curve to generate the way points for the car to follow.  It uses 2 way points from the previous path, and 3 new points 30, 60 and 90 meters ahead of the car along the frenet s direction, and then interpolates them with a spline. (function `PlanPath`)
 
 
 
-
-
-
-
-Future Improvement:
+## Future Improvement:
 The simulation is run in a simplified environment, the logic shall improve for the following use case in future:
-1. couldn't optimize for long path, multiple steps
-2. couldn't break and get over
-3. defensive driving, car change lane
-4. car ahead speed too slow
-5. very hard to test for specific scenario
-6. return to right lane
-7. different car length - trailor
-8. during lane change, if car accelrate, abandon lane change
-
+1. The car currently cannot do defensive driving. It cannot predict potential dangerous abnormal movement.
+2. It currently cannot optimize sequential multiple actions, such as reduce speed and change 2 lanes. It's very short sighted.
+3. The code is not suitable for different vehicle length, such as truck, lorry.
+4. The car is very vulnerable during lane change. It cannot abandon lane change and come back to the previous lane if other car starts to change lane or accelerate.
 
 
 -----------------------

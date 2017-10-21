@@ -1,4 +1,7 @@
-#Project Documentation
+# Project Documentation
+The car is able to travel for long distance without incidence. Youtube video: https://youtu.be/mRQkIQv4WJM
+
+
 The implementation borrows ideas from the project walk through video. The
 project uses finite state machine to plan car behavior. The implementation has
 two main components: a). Behavior Planning: plan the action on what action to
@@ -6,11 +9,20 @@ take given the status of cars on the road; 2) Path Planning: given the desired
 action to take, what's the course of way point to pass to complete the action.
 
 
+## Behavior Planning
+It uses cost function to optimize for the best lane (code: function )
+
+
+## Trajectory Generation
+
+
+
+
 
 
 
 Future Improvement:
-The simulation is run in a over simplied environment
+The simulation is run in a simplified environment, the logic shall improve for the following use case in future:
 1. couldn't optimize for long path, multiple steps
 2. couldn't break and get over
 3. defensive driving, car change lane

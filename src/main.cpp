@@ -309,17 +309,17 @@ double laneCost(int target_lane, int current_lane, double car_s, double car_spee
 
   double cost = 0;
   double cost_lane_change = 1;
-  double cost_unsafe = 9999999;
+  double cost_unsafe = 999;
   double cost_close = 10;
   bool changeLane = false;
 
   //check whether the target lane is a valid lane
   if (target_lane > 2 || target_lane < 0){
-    return cost_unsafe;
+    return cost_unsafe+10;
+    // the lane doesn't exist
   } else {
     if (target_lane != current_lane) {
       //avoid lane changes
-      cost = cost + cost_lane_change;
       changeLane = true;
     }
     //check the car status in the target lane, and decide whether it's safe to move
@@ -338,24 +338,29 @@ double laneCost(int target_lane, int current_lane, double car_s, double car_spee
 
         // check whether it's too close to cars ahead
         if((check_car_s > car_s) && ((check_car_s-car_s)< safe_dist)) {
-          if (changeLane == true){
+          if (changeLane){
               cout << "    A car ahead too close to change lane." << std::endl;
           }
           cost = cost_unsafe; // not safe
         }
-        // check whether there is car chasing close behind
+        // check whether there is car positioned close behind
         else if ((check_car_s < car_s) && ((car_s-check_car_s)< safe_dist-12)) {
 
           cout << "    A car behind is too close! Gap:" << car_s-check_car_s << " M" << std::endl;
-          cost = cost + cost_unsafe;
-          // if larger speed not safe
-          if (check_speed > car_speed)
-          {
-            cout << "   A car behind is running faster than me." << std::endl;
-            cost = cost_unsafe; // not safe
-          }
+          cost = cost_unsafe;
+        }
+
+        else if ((check_car_s < car_s) && ((car_s-check_car_s) < safe_dist +10) && check_speed > car_speed)
+        {
+          cout << "   A car behind is running faster behind." << std::endl;
+          cost = cost_unsafe; // not safe
         }
       }
+    }
+
+    if (target_lane != current_lane) {
+      //avoid lane changes
+      cost = cost + cost_lane_change;
     }
     return cost;
   }
@@ -368,6 +373,11 @@ int findLane (int lane, double car_s, double car_speed, int prev_size, vector<ve
   double cost_current = laneCost(lane, lane, car_s, car_speed, prev_size, sensor_fusion, safe_dist);
   double cost_right = laneCost(lane+1, lane, car_s, car_speed, prev_size, sensor_fusion, safe_dist);
 
+  cout << " " <<std::endl;
+  cout << "Cost left:" << cost_left<<std::endl;
+  cout << "Cost current:" << cost_current<<std::endl;
+  cout << "Cost right:" << cost_right<<std::endl;
+  cout << " " <<std::endl;
   //lane recommendation logic
   //change to left lane if it's favorable than current lane
   //change to right lane if it's favorable than all other options
@@ -489,15 +499,15 @@ int main() {
 
 
           // reduce speed if it's too close to the front car, and not changing lane
-          double max_vel = 49.78;
+          double max_vel = 49.76;
 
           if (too_close)
           {
-            ref_vel -= 0.224;
+            ref_vel -= 0.2235;
           }
           else if (ref_vel < max_vel)
           {
-            ref_vel += 0.224;
+            ref_vel += 0.2235;
           }
 
           //project the path based on the calculated path and lane

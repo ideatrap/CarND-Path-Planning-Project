@@ -1,9 +1,24 @@
 #Project Documentation
-The implementation borrows ideas from the project walk through video.
+The implementation borrows ideas from the project walk through video. The
+project uses finite state machine to plan car behavior. The implementation has
+two main components: a). Behavior Planning: plan the action on what action to
+take given the status of cars on the road; 2) Path Planning: given the desired
+action to take, what's the course of way point to pass to complete the action.
 
-The project uses finite state machine to plan car behavior. 
 
 
+
+
+Future Improvement:
+The simulation is run in a over simplied environment
+1. couldn't optimize for long path, multiple steps
+2. couldn't break and get over
+3. defensive driving, car change lane
+4. car ahead speed too slow
+5. very hard to test for specific scenario
+6. return to right lane
+7. different car length - trailor
+8. during lane change, if car accelrate, abandon lane change
 
 
 
@@ -144,6 +159,3 @@ that's just a guess.
 
 One last note here: regardless of the IDE used, every submitted project must
 still be compilable with cmake and make./
-
-## How to write a README
-A well written README file can enhance your project and portfolio.  Develop your abilities to create professional README files by completing [this free course](https://www.udacity.com/course/writing-readmes--ud777).
